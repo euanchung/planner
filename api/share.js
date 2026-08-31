@@ -33,6 +33,7 @@ export default async function handler(req, res) {
         memo: task.memo || "",
         opt: !!task.opt,
         rep: task.rep || null,
+        from: task.rep ? null : (task.from || null),
         skips: [],
         doneDates: [],
         done: false,

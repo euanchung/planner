@@ -97,7 +97,7 @@ td.tm b{color:#374151;font-weight:600}td.tm span{font-size:9.5px;font-variant-nu
 .cal button.sel{background:var(--head);color:#fff}
 .dots{display:flex;gap:2px;height:5px}
 .dot{width:4px;height:4px;border-radius:99px;display:inline-block}
-.dot.req{background:var(--over)}.dot.opt{background:#a9b2bd}
+.dot.req{background:var(--over)}.dot.opt{background:#a9b2bd}.dot.prog{background:#3b82f6}
 .calhead{display:flex;align-items:center;gap:10px}
 .calhead b{font-size:13px}
 .dl{list-style:none;margin:8px 0 0;padding:0;font-size:12px;color:#4b5563}
@@ -173,6 +173,7 @@ select.mini{padding:5px 4px}
 <div class="wrap">
 <section id="home">
   <div class="card">
+    <p class="hint" id="editnote" style="color:var(--head);font-weight:600"></p>
     <input id="line" placeholder="물리 실험보고서 내일" autocomplete="off">
     <p class="hint" id="hint"></p>
     <div class="row" id="periods"></div>
@@ -181,13 +182,14 @@ select.mini{padding:5px 4px}
     <div class="row wrap" id="flags"></div>
     <div class="addrow">
       <input id="memo" placeholder="메모 (선택)" autocomplete="off">
+      <button class="ghost hidden" id="canceledit">수정 취소</button>
       <button class="primary" id="add">등록</button>
     </div>
     <p class="hint" id="summary"></p>
   </div>
   <div id="lists"></div>
   <div class="card">
-    <h2 class="sec">시간표 <span class="sub">수업을 누르면 그때까지 끝내야 할 과제가 나와</span></h2>
+    <h2 class="sec">시간표 <span class="sub">수업을 누르면 그 수업 날짜에 마감인 과제가 나와</span></h2>
     <div class="row" id="ttweek"></div>
     <div class="scroll"><table id="tt"></table></div>
     <div id="ttdetail"></div>
@@ -349,6 +351,9 @@ const dd=s=>Math.round((fromYmd(s)-today0())/864e5);
 function dueLabel(s){const n=dd(s),d=fromYmd(s),md=`${d.getMonth()+1}/${d.getDate()}(${DAY[d.getDay()]})`;
  if(n<0)return[`${md} · ${-n}일 지남`,"over"];if(n===0)return[`오늘 ${md}`,"today"];
  if(n===1)return[`내일 ${md}`,"tmr"];return[`${md} · D-${n}`,n<=7?"soon":"far"]}
+const mdLabel=s=>{const d=fromYmd(s);return`${d.getMonth()+1}/${d.getDate()}(${DAY[d.getDay()]})`};
+/* 기간제 과제 표시용: from이 있으면 "시작일~마감라벨", 없으면 원래 마감 라벨 */
+function spanLabel(t){const base=dueLabel(t.due);if(!t.from)return base;return[`${mdLabel(t.from)}~${base[0]}`,base[1]]}
 function nextClassDate(k,from=new Date()){for(let i=1;i<=14;i++){const d=addD(from,i),r=rowFor(d,myClass);
  if(r&&r.length&&r.some(x=>key(x[0],x[1])===k))return d}return null}
 function addMonth(d){const x=new Date(d),day=x.getDate();x.setDate(1);x.setMonth(x.getMonth()+1);
@@ -438,7 +443,7 @@ const genShareId=()=>String(Date.now())+Math.random().toString(36).slice(2,7);
 async function shareTask(t){
  try{
   const j=await api("share",{method:"POST",body:{shareId:t.shareId,
-   task:{title:t.title,k:t.k,due:t.due,time:t.time,memo:t.memo,opt:t.opt,rep:t.rep}}});
+   task:{title:t.title,k:t.k,due:t.due,time:t.time,memo:t.memo,opt:t.opt,rep:t.rep,from:t.from||null}}});
   toast(j.count?`반 친구 ${j.count}명에게 공유했어`:"공유했어 (같은 반 다른 친구가 아직 없어)");
  }catch(e){ toast("공유 실패: "+e.message) }
 }
@@ -446,6 +451,8 @@ async function shareTask(t){
 /* ══ 화면 상태 ══ */
 let sel=null,due=ymd(addD(new Date(),1)),touched=false,openId=null,showDone=false;
 let rep="none",isOpt=false,shareOn=false,tab="home",calY,calM,calSel=null,ttSel=null;
+let editingId=null,editTime="";
+let fromDate=null; // 기간제 과제 시작일 (선택)
 const now=()=>new Date();
 const curPeriod=()=>{const n=now(),m=n.getHours()*60+n.getMinutes();
  for(let i=0;i<7;i++){const[a,b]=PERIODS[i].s.split(":").map(Number),[c,d]=PERIODS[i].e.split(":").map(Number);
@@ -507,7 +514,9 @@ function renderDues(){
  let f=addD(n,1);for(let i=0;i<8;i++){if(f.getDay()===5)break;f=addD(f,1)}
  L.push(["이번 주 금요일",ymd(f)],["1주 뒤",ymd(addD(n,7))]);
  $("dues").innerHTML=L.map(([l,v])=>`<button class="due ${d===v?"sel":""}" data-due="${v}">${esc(l)}</button>`).join("")
-  +`<input type="date" id="pickdate" value="${d}">`;
+  +`<input type="date" id="pickdate" value="${d}">`
+  +`<span class="hint" style="margin:0 2px 0 6px;font-size:11.5px;color:var(--muted)">기간제라면 시작일↓</span>`
+  +`<input type="date" id="pickfrom" value="${fromDate||""}" max="${d}">`;
  const r=effRep(),o=effOpt();
  $("flags").innerHTML=[["none","한 번만"],["week","매주"],["month","매달"]].map(([v,l])=>`<button class="opt ${r===v?"sel":""}" data-rep="${v}">${l}</button>`).join("")
   +`<span style="width:10px"></span>`+[[false,"필수"],[true,"선택"]].map(([v,l])=>`<button class="opt ${o===v?"sel":""}" data-opt="${v}">${l}</button>`).join("")
@@ -522,20 +531,20 @@ function renderHint(){
     (p.rep?" · "+(p.rep==="week"?"매주":"매달"):"")+(p.title?` · 내용 “${p.title}”`:"");
  $("hint").textContent=h;
  const ok=k&&k[0]!=="?";
- $("summary").textContent=`${ok?disp(...pairOf(k))+" · ":"수업 미지정 · "}${dueLabel(effDue())[0]}`+
+ $("summary").textContent=`${ok?disp(...pairOf(k))+" · ":"수업 미지정 · "}${fromDate?mdLabel(fromDate)+"~":""}${dueLabel(effDue())[0]}`+
   `${effRep()!=="none"?" · "+(effRep()==="week"?"매주 반복":"매달 반복"):""} · ${effOpt()?"선택":"필수"}로 저장돼.`;
 }
 function occHtml(o){
- const t=o.t,[lb,tn]=dueLabel(o.d);
+ const t=o.t,[lb,tn]=t.rep?dueLabel(o.d):spanLabel(t);
  return`<li class="item ${openId===t.id+o.d?"open":""}" data-id="${t.id}" data-d="${o.d}">
   <div class="bar ${tn}"></div><div style="flex:1;min-width:0">
   <div class="body"><div class="top">
    <button class="tick ${o.done?"on":""}" data-act="done"></button>
-   <div class="main" data-act="open"><span class="tag" style="${sty(t.k)}">${esc(disp(...pairOf(t.k)))}</span><span class="ttl"${o.done?' style="text-decoration:line-through;color:#9aa5b4"':""}>${esc(t.title)}</span>${t.opt?'<span class="opttag">선택</span>':""}${t.shared?`<span class="opttag" style="color:#0369a1;background:#e0f2fe;border-color:#bae6fd">공유${t.sharedBy?" · "+esc(t.sharedBy):""}</span>`:""}${t.rep?`<span class="rep">${t.rep==="week"?"매주":"매달"}</span>`:""}</div>
+   <div class="main" data-act="open"><span class="tag" style="${sty(t.k)}">${esc(disp(...pairOf(t.k)))}</span><span class="ttl"${o.done?' style="text-decoration:line-through;color:#9aa5b4"':""}>${esc(t.title)}</span>${t.opt?'<span class="opttag">선택</span>':""}${t.from?'<span class="opttag" style="color:#1d4ed8;background:#dbeafe;border-color:#bfdbfe">기간제</span>':""}${t.shared?`<span class="opttag" style="color:#0369a1;background:#e0f2fe;border-color:#bae6fd">공유${t.sharedBy?" · "+esc(t.sharedBy):""}</span>`:""}${t.rep?`<span class="rep">${t.rep==="week"?"매주":"매달"}</span>`:""}</div>
   </div><div class="meta">${esc(lb)}${t.time?" "+t.time:""}${t.memo?" · "+esc(t.memo):""}</div></div>
   <div class="acts">${t.rep
-   ?`<button class="ghost" data-act="skip">이번 회차만 삭제</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
-   :`<button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`}
+   ?`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="skip">이번 회차만 삭제</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
+   :`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`}
   </div></div></li>`;
 }
 const group=(title,items,tone)=>!items.length?"":
@@ -563,7 +572,9 @@ function renderTT(){
  PERIODS.forEach((p,i)=>{
   h+=`<tr><td class="tm"><b>${p.n}교시</b><br><span>${p.s}–${p.e}</span></td>`;
   for(let d=1;d<=5;d++){const dt=addD(base,d-1),ds=ymd(dt),row=rowFor(dt,myClass),[s,tch]=row[i]||["",""];
-   const kk=key(s,tch),cnt=s?pend.filter(o=>o.t.k===kk).length:0,isToday=ds===t;
+   const kk=key(s,tch);
+   const cnt=s?pend.filter(o=>o.t.k===kk&&o.d===ds).length+S.tasks.filter(x=>!x.rep&&x.from&&!x.done&&x.k===kk&&x.from<=ds&&ds<x.due).length:0;
+   const isToday=ds===t;
    const hit=(ttSel&&ttSel.date===ds&&ttSel.i===i)||(!ttSel&&isToday&&curPeriod()===i);
    h+=`<td${isToday?' style="background:#f7f9fb"':""}><button class="cell ${hit?"hit":""}" style="${sty(kk)}" data-cell="${ds}-${i}"><b>${esc(s||"-")}</b>${tch?` <i>${esc(tch)}</i>`:""}${cnt?`<u>할 일 ${cnt}</u>`:""}</button></td>`}
   h+=`</tr>`});
@@ -573,32 +584,49 @@ function renderTT(){
 function renderTTdetail(){
  if(!ttSel){$("ttdetail").innerHTML="";return}
  const ds=ttSel.date,i=ttSel.i,date=fromYmd(ds),row=rowFor(date,myClass),[s,t]=row[i]||["",""],kk=key(s,t);
- const all=pendingOcc().filter(o=>o.d<=ds),mine=all.filter(o=>o.t.k===kk),rest=all.filter(o=>o.t.k!==kk);
- $("ttdetail").innerHTML=`<div class="grp"><h3>${esc(disp(s,t))} · ${date.getMonth()+1}/${date.getDate()}(${DAY[date.getDay()]}) ${PERIODS[i].s} 수업까지 <em>${all.length}건</em></h3>`
-  +(all.length?`<ul class="list">${mine.map(occHtml).join("")}${rest.length?`<li style="font-size:11.5px;color:var(--muted);padding:6px 2px">그 시각까지 마감인 다른 수업 과제</li>`:""}${rest.map(occHtml).join("")}</ul>`
-   :`<p class="empty" style="padding:20px 0">그때까지 남은 과제가 없어.</p>`)
+ const due=pendingOcc().filter(o=>o.d===ds&&o.t.k===kk);
+ const inProg=(S.tasks||[]).filter(x=>!x.rep&&x.from&&!x.done&&x.k===kk&&x.from<=ds&&ds<x.due).map(x=>({t:x,d:x.due,done:false}));
+ const all=due.concat(inProg);
+ $("ttdetail").innerHTML=`<div class="grp"><h3>${esc(disp(s,t))} · ${date.getMonth()+1}/${date.getDate()}(${DAY[date.getDay()]}) ${PERIODS[i].s} 수업 <em>${all.length}건</em></h3>`
+  +(all.length?`<ul class="list">${all.map(occHtml).join("")}</ul>`
+   :`<p class="empty" style="padding:20px 0">이 수업, 이 날짜에 마감이거나 진행 중인 과제가 없어.</p>`)
   +`<div class="addrow" style="margin-top:8px">
-     <input id="qcline_tt" placeholder="여기까지 할 일 바로 추가" style="flex:1;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:#f7f9fb;outline:none;min-width:120px">
+     <input id="qcline_tt" placeholder="이 날짜까지 할 일 바로 추가" style="flex:1;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:#f7f9fb;outline:none;min-width:120px">
      <button class="primary" data-act="quickadd" data-qcsrc="qcline_tt" data-qcdue="${ds}">추가</button>
      <button class="ghost" id="ttclose">닫기</button>
    </div></div>`;
 }
+/* 기간제 과제가 "진행 중"인 날짜들 (마감일 당일은 제외 — 그날은 마감 점으로 이미 표시됨) */
+function periodDaysInRange(from,to){
+ const map={};
+ for(const x of S.tasks){
+  if(x.rep||!x.from||x.done)continue;
+  let d=fromYmd(x.from),g=0;
+  while(g++<400){const s=ymd(d);if(s>=x.due)break;if(s>=from&&s<=to)(map[s]=map[s]||[]).push(x);d=addD(d,1)}
+ }
+ return map;
+}
 function renderCal(){
  const n=now();$("calmon").textContent=`${calY}년 ${calM+1}월`;
  const first=new Date(calY,calM,1),start=addD(first,-first.getDay());
- const occ=occurrences(ymd(start),ymd(addD(start,41)));
+ const rs=ymd(start),re=ymd(addD(start,41));
+ const occ=occurrences(rs,re),pdays=periodDaysInRange(rs,re);
  let h=DAY.map(d=>`<div class="dow">${d}</div>`).join("");
  for(let i=0;i<42;i++){const d=addD(start,i),s=ymd(d),out=d.getMonth()!==calM;
-  const day=occ.filter(o=>o.d===s&&!o.done),req=day.some(o=>!o.t.opt),op=day.some(o=>o.t.opt);
+  const day=occ.filter(o=>o.d===s&&!o.done),req=day.some(o=>!o.t.opt),op=day.some(o=>o.t.opt),prog=!!(pdays[s]&&pdays[s].length);
   h+=`<button class="${out?"out":""} ${s===ymd(n)?"now":""} ${calSel===s?"sel":""}" data-day="${s}">
-   <span>${d.getDate()}</span><span class="dots">${req?'<i class="dot req"></i>':""}${op?'<i class="dot opt"></i>':""}</span></button>`}
+   <span>${d.getDate()}</span><span class="dots">${req?'<i class="dot req"></i>':""}${op?'<i class="dot opt"></i>':""}${prog?'<i class="dot prog"></i>':""}</span></button>`}
  $("cal").innerHTML=h;renderCalDetail();
 }
 function renderCalDetail(){
- if(!calSel){$("caldetail").innerHTML=`<p class="note">날짜를 누르면 그날까지 끝내야 할 과제가 나와. 빨간 점은 필수, 회색 점은 선택.</p>`;return}
- const all=pendingOcc().filter(o=>o.d<=calSel),d=fromYmd(calSel);
- $("caldetail").innerHTML=`<div class="grp"><h3>${d.getMonth()+1}월 ${d.getDate()}일(${DAY[d.getDay()]})까지 <em>${all.length}건</em></h3>`
-  +(all.length?`<ul class="list">${all.map(occHtml).join("")}</ul>`:`<p class="empty" style="padding:20px 0">그날까지 남은 과제가 없어.</p>`)
+ if(!calSel){$("caldetail").innerHTML=`<p class="note">날짜를 누르면 그날 마감인 과제가 나와. 빨간 점은 필수, 회색 점은 선택, 파란 점은 기간제 과제가 진행 중인 날이야.</p>`;return}
+ const due=pendingOcc().filter(o=>o.d===calSel);
+ const inProg=S.tasks.filter(x=>!x.rep&&x.from&&!x.done&&x.from<=calSel&&calSel<x.due).map(x=>({t:x,d:x.due,done:false}));
+ const all=due.concat(inProg),d=fromYmd(calSel);
+ $("caldetail").innerHTML=`<div class="grp"><h3>${d.getMonth()+1}월 ${d.getDate()}일(${DAY[d.getDay()]}) <em>${all.length}건</em></h3>`
+  +(due.length?`<ul class="list">${due.map(occHtml).join("")}</ul>`:"")
+  +(inProg.length?`<div style="font-size:11.5px;color:var(--muted);padding:${due.length?"8px":"0"} 2px 4px">기간 중인 과제</div><ul class="list">${inProg.map(occHtml).join("")}</ul>`:"")
+  +(!all.length?`<p class="empty" style="padding:20px 0">이 날 마감이거나 진행 중인 과제가 없어.</p>`:"")
   +`<div class="addrow" style="margin-top:8px">
      <input id="qcline_cal" placeholder="이 날짜까지 할 일 바로 추가" style="flex:1;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:#f7f9fb;outline:none;min-width:120px">
      <button class="primary" data-act="quickadd" data-qcsrc="qcline_cal" data-qcdue="${calSel}">추가</button>
@@ -623,21 +651,63 @@ function renderSet(){
  $("perm").textContent=ok?"알림 켜져 있음":"알림 켜기";
  $("perm").style.background=ok?"#d1fae5":"";$("perm").style.color=ok?"#065f46":"";
 }
-function renderAll(){renderHeader();renderChips();renderDues();renderHint();renderLists();renderTT();renderCal();renderSet()}
+function renderAll(){renderHeader();renderChips();renderDues();renderHint();renderLists();renderTT();renderCal();renderSet();renderEditBar()}
+
+/* ══ 수정 ══ */
+function startEdit(t){
+ editingId=t.id;editTime=t.time||"";
+ openId=null;
+ if(tab!=="home")switchTab("home");
+ $("line").value=t.title;
+ sel=t.k;due=t.due;touched=true;
+ rep=t.rep||"none";isOpt=!!t.opt;
+ fromDate=t.from||null;
+ $("memo").value=t.memo||"";
+ shareOn=false;
+ renderAll();
+ $("line").focus();
+ toast("수정할 내용을 고치고 '수정 완료'를 눌러줘");
+}
+function cancelEdit(){
+ editingId=null;editTime="";
+ $("line").value="";$("memo").value="";
+ sel=null;touched=false;rep="none";isOpt=false;shareOn=false;fromDate=null;
+ due=ymd(addD(new Date(),1));
+}
+function renderEditBar(){
+ const editing=!!editingId;
+ $("editnote").textContent=editing?"✏️ 이 항목을 수정하는 중이야":"";
+ $("canceledit").classList.toggle("hidden",!editing);
+ $("add").textContent=editing?"수정 완료":"등록";
+}
 
 /* ══ 동작 ══ */
 function add(){
  const v=$("line").value,p=parseLine(v),title=p.title||v.trim(),k=effK();
  if(!title){$("line").focus();toast("할 일 내용을 적어줘");return}
  if(k&&k[0]==="?"){toast(k.slice(1)+" 선생님을 골라줘");return}
+ const dueVal=effDue();
+ if(fromDate&&effRep()!=="none"){toast("반복 과제에는 기간(시작일)을 같이 쓸 수 없어");return}
+ if(fromDate&&fromDate>dueVal){toast("시작일은 마감일보다 늦을 수 없어");return}
+ if(editingId){
+  const t=S.tasks.find(x=>x.id===editingId);
+  if(!t){toast("수정할 항목을 찾을 수 없어");cancelEdit();renderAll();return}
+  t.title=title;t.k=k||key("기타","");t.due=dueVal;t.time=p.time||editTime;
+  t.memo=$("memo").value.trim();t.opt=effOpt();t.rep=effRep()==="none"?null:effRep();
+  t.from=t.rep?null:(fromDate||null);
+  cancelEdit();
+  markDirty();renderAll();toast("수정했어");
+  return;
+ }
  const doShare=shareOn;
+ const repVal=effRep()==="none"?null:effRep();
  const t={id:String(Date.now())+Math.random().toString(36).slice(2,5),title,k:k||key("기타",""),
-  due:effDue(),time:p.time||"",memo:$("memo").value.trim(),opt:effOpt(),
-  rep:effRep()==="none"?null:effRep(),skips:[],doneDates:[],done:false,created:Date.now(),
+  due:dueVal,time:p.time||"",memo:$("memo").value.trim(),opt:effOpt(),
+  rep:repVal,from:repVal?null:(fromDate||null),skips:[],doneDates:[],done:false,created:Date.now(),
   shared:doShare,shareId:doShare?genShareId():null,sharedBy:doShare?(me?.nick||me?.id||""):null};
  S.tasks.unshift(t);
- $("line").value="";$("memo").value="";sel=null;touched=false;rep="none";isOpt=false;shareOn=false;due=ymd(addD(new Date(),1));
- markDirty();renderAll();toast(`${disp(...pairOf(t.k))} · ${dueLabel(t.due)[0]}${t.rep?" 반복":""} 등록`);
+ $("line").value="";$("memo").value="";sel=null;touched=false;rep="none";isOpt=false;shareOn=false;fromDate=null;due=ymd(addD(new Date(),1));
+ markDirty();renderAll();toast(`${disp(...pairOf(t.k))} · ${t.from?mdLabel(t.from)+"~":""}${dueLabel(t.due)[0]}${t.rep?" 반복":""} 등록`);
  if(doShare)shareTask(t);
 }
 function pickK(k){sel=k;if(!touched&&CLASSES.has(k)){const n=nextClassDate(k);if(n)due=ymd(n)}
@@ -647,6 +717,7 @@ $("line").addEventListener("input",()=>{renderHint();renderChips();renderDues()}
 $("line").addEventListener("keydown",e=>{if(e.key==="Enter")add()});
 $("memo").addEventListener("keydown",e=>{if(e.key==="Enter")add()});
 $("add").addEventListener("click",add);
+$("canceledit").addEventListener("click",()=>{cancelEdit();renderAll();});
 $("pm").addEventListener("click",()=>{calM--;if(calM<0){calM=11;calY--}renderCal()});
 $("nm").addEventListener("click",()=>{calM++;if(calM>11){calM=0;calY++}renderCal()});
 
@@ -713,14 +784,15 @@ document.addEventListener("click",async e=>{
  if(act){
   const li=act.closest(".item"),id=li.getAttribute("data-id"),ds=li.getAttribute("data-d"),a=act.getAttribute("data-act");
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  if(a==="edit"){startEdit(t);return}
   if(a==="open"){openId=openId===id+ds?null:id+ds;renderAll();return}
   if(a==="done"){if(t.rep){t.doneDates=t.doneDates||[];const i=t.doneDates.indexOf(ds);
     i>=0?t.doneDates.splice(i,1):t.doneDates.push(ds)}else t.done=!t.done;openId=null}
   else if(a==="skip"){t.skips=(t.skips||[]).concat(ds);toast("이번 회차만 건너뛰었어");openId=null}
-  else if(a==="delall"){if(!confirm("반복 전체를 삭제할까?"))return;S.tasks=S.tasks.filter(x=>x.id!==id);openId=null}
+  else if(a==="delall"){if(!confirm("반복 전체를 삭제할까?"))return;S.tasks=S.tasks.filter(x=>x.id!==id);openId=null;if(editingId===id)cancelEdit()}
   else if(a==="p1"){t.due=ymd(addD(fromYmd(t.due),1))}
   else if(a==="p7"){t.due=ymd(addD(fromYmd(t.due),7))}
-  else if(a==="del"){S.tasks=S.tasks.filter(x=>x.id!==id);openId=null}
+  else if(a==="del"){S.tasks=S.tasks.filter(x=>x.id!==id);openId=null;if(editingId===id)cancelEdit()}
   else if(a==="share"){
    if(t.shared){toast("이미 반 친구들에게 공유돼 있어");return}
    t.shared=true;t.shareId=genShareId();t.sharedBy=me?.nick||me?.id||"";
@@ -731,10 +803,18 @@ document.addEventListener("click",async e=>{
  }
 });
 document.addEventListener("change",async e=>{
- if(e.target.id==="pickdate"){due=e.target.value;touched=true;renderDues();renderHint();return}
+ if(e.target.id==="pickdate"){due=e.target.value;touched=true;
+  if(fromDate&&fromDate>due){toast("시작일이 마감일보다 늦어져서 시작일을 지웠어");fromDate=null}
+  renderDues();renderHint();return}
+ if(e.target.id==="pickfrom"){const v=e.target.value||null;
+  if(v&&v>effDue()){toast("시작일은 마감일보다 늦을 수 없어");renderDues();return}
+  fromDate=v;renderDues();return}
  const act=e.target.closest('[data-act="date"]');
  if(act){const id=act.closest(".item").getAttribute("data-id"),t=S.tasks.find(x=>x.id===id);
-  if(t){t.due=e.target.value;markDirty();renderAll()}return}
+  if(t){
+   if(t.from&&e.target.value<t.from){toast("마감일은 시작일보다 빠를 수 없어");e.target.value=t.due;return}
+   t.due=e.target.value;markDirty();renderAll()
+  }return}
  const sf=e.target.closest("[data-sd]");
  if(sf){const d=Number(sf.getAttribute("data-sd")),i=Number(sf.getAttribute("data-si")),f=sf.getAttribute("data-sf");
   const grid=ensureSchedGrid();if(!grid[d])grid[d]=blankRow();if(!grid[d][i])grid[d][i]=["",""];
