@@ -1,9 +1,10 @@
-import { get, set, auth, fail } from "../lib/db.js";
+import { get, set, smembers, auth, fail } from "../lib/db.js";
 
 /* 반별 시간표. 매주 같은 시간표가 아니라 A주/B주 두 벌을 두고 번갈아 쓴다.
    refMonday가 속한 주 = A주. 그 다음 주는 B주, 또 그 다음 주는 다시 A주 ... 이렇게 반복된다.
    overrides는 "이번 회차만" 갑자기 바뀐 수업을 특정 날짜에만 덮어쓴다 (반복 패턴 자체는 안 건드림). */
 
+const DEFAULT_CLASS = "4반";
 const blankRow = () => Array.from({ length: 7 }, () => ["", ""]);
 const blankGrid = () => ({ 1: blankRow(), 2: blankRow(), 3: blankRow(), 4: blankRow(), 5: blankRow() });
 
@@ -24,9 +25,9 @@ function defaultConfig() {
   };
   return {
     refMonday: "2026-08-31", // 이 날짜가 속한 주(2026-08-31 월요일 시작 주) = A주. 지금이 A주.
-    classes: ["1반"],
-    weekA: { "1반": weekA_1 },
-    weekB: { "1반": weekB_1 },
+    classes: [DEFAULT_CLASS],
+    weekA: { [DEFAULT_CLASS]: weekA_1 },
+    weekB: { [DEFAULT_CLASS]: weekB_1 },
     overrides: [] // [{date:"YYYY-MM-DD", cls, period(0-6), subject, teacher}]
   };
 }
@@ -34,7 +35,7 @@ function defaultConfig() {
 function normalize(cfg) {
   // 방어적으로 형태를 맞춰준다 (관리자가 저장한 값에 구멍이 있어도 앱이 안 죽게)
   cfg = cfg && typeof cfg === "object" ? cfg : defaultConfig();
-  if (!Array.isArray(cfg.classes) || !cfg.classes.length) cfg.classes = ["1반"];
+  if (!Array.isArray(cfg.classes) || !cfg.classes.length) cfg.classes = [DEFAULT_CLASS];
   if (!cfg.refMonday) cfg.refMonday = "2026-08-31";
   cfg.weekA = cfg.weekA || {};
   cfg.weekB = cfg.weekB || {};
@@ -46,6 +47,32 @@ function normalize(cfg) {
   return cfg;
 }
 
+/* 예전에 "1반"이라는 임시 이름으로 만들어 둔 시간표를 실제 이름(4반)으로 한 번만 옮긴다.
+   이미 옮겼으면(migrated:cls_rename_v1 플래그) 다시 손대지 않는다 — 그 뒤에 관리자가 진짜
+   "1반"을 새로 추가해도 안전하도록. */
+async function migrateLegacyClassName(cfg) {
+  if (!(cfg.classes.length === 1 && cfg.classes[0] === "1반")) return cfg;
+  const already = await get("migrated:cls_rename_v1");
+  if (already) return cfg;
+
+  cfg.classes = [DEFAULT_CLASS];
+  if (cfg.weekA["1반"]) { cfg.weekA[DEFAULT_CLASS] = cfg.weekA["1반"]; delete cfg.weekA["1반"]; }
+  if (cfg.weekB["1반"]) { cfg.weekB[DEFAULT_CLASS] = cfg.weekB["1반"]; delete cfg.weekB["1반"]; }
+  (cfg.overrides || []).forEach((o) => { if (o.cls === "1반") o.cls = DEFAULT_CLASS; });
+  await set("schedule:config", cfg);
+
+  const ids = (await smembers("users")) || [];
+  for (const id of ids) {
+    const u = await get("user:" + id);
+    if (u && (u.cls === "1반" || !u.cls)) {
+      u.cls = DEFAULT_CLASS;
+      await set("user:" + id, u);
+    }
+  }
+  await set("migrated:cls_rename_v1", true);
+  return cfg;
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
@@ -54,7 +81,9 @@ export default async function handler(req, res) {
         cfg = defaultConfig();
         await set("schedule:config", cfg);
       }
-      return res.status(200).json(normalize(cfg));
+      cfg = normalize(cfg);
+      cfg = await migrateLegacyClassName(cfg);
+      return res.status(200).json(cfg);
     }
 
     if (req.method === "PUT") {

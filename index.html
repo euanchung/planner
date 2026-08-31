@@ -299,7 +299,7 @@ const key=(s,t)=>s+"|"+(t||"");
 const disp=(s,t)=>t?`${s}(${t})`:s;
 /* 시간표는 서버에서 반별로 받아온다 (SCHED). A주/B주 두 벌을 기준 월요일 기준으로 번갈아 쓰고,
    특정 날짜만 갑자기 바뀐 경우는 overrides가 덮어쓴다. myClass가 지금 보고 있는 반. */
-let SCHED=null, myClass="1반";
+let SCHED=null, myClass="4반";
 let CLASSES=new Map(), ALLKEYS=[];
 const blankRow=()=>Array.from({length:7},()=>["",""]);
 const blankGrid=()=>({1:blankRow(),2:blankRow(),3:blankRow(),4:blankRow(),5:blankRow()});
@@ -433,9 +433,19 @@ async function pullState(){
  }catch(e){ online=false;syncBadge("off","연결 안 됨") }
 }
 
+/* ══ 반 공유 ══ */
+const genShareId=()=>String(Date.now())+Math.random().toString(36).slice(2,7);
+async function shareTask(t){
+ try{
+  const j=await api("share",{method:"POST",body:{shareId:t.shareId,
+   task:{title:t.title,k:t.k,due:t.due,time:t.time,memo:t.memo,opt:t.opt,rep:t.rep}}});
+  toast(j.count?`반 친구 ${j.count}명에게 공유했어`:"공유했어 (같은 반 다른 친구가 아직 없어)");
+ }catch(e){ toast("공유 실패: "+e.message) }
+}
+
 /* ══ 화면 상태 ══ */
 let sel=null,due=ymd(addD(new Date(),1)),touched=false,openId=null,showDone=false;
-let rep="none",isOpt=false,tab="home",calY,calM,calSel=null,ttSel=null;
+let rep="none",isOpt=false,shareOn=false,tab="home",calY,calM,calSel=null,ttSel=null;
 const now=()=>new Date();
 const curPeriod=()=>{const n=now(),m=n.getHours()*60+n.getMinutes();
  for(let i=0;i<7;i++){const[a,b]=PERIODS[i].s.split(":").map(Number),[c,d]=PERIODS[i].e.split(":").map(Number);
@@ -500,7 +510,8 @@ function renderDues(){
   +`<input type="date" id="pickdate" value="${d}">`;
  const r=effRep(),o=effOpt();
  $("flags").innerHTML=[["none","한 번만"],["week","매주"],["month","매달"]].map(([v,l])=>`<button class="opt ${r===v?"sel":""}" data-rep="${v}">${l}</button>`).join("")
-  +`<span style="width:10px"></span>`+[[false,"필수"],[true,"선택"]].map(([v,l])=>`<button class="opt ${o===v?"sel":""}" data-opt="${v}">${l}</button>`).join("");
+  +`<span style="width:10px"></span>`+[[false,"필수"],[true,"선택"]].map(([v,l])=>`<button class="opt ${o===v?"sel":""}" data-opt="${v}">${l}</button>`).join("")
+  +`<span style="width:10px"></span><button class="opt ${shareOn?"sel":""}" data-share="1">${myClass} 전체와 공유</button>`;
 }
 function renderHint(){
  const p=parseLine($("line").value),k=effK();let h="";
@@ -520,11 +531,11 @@ function occHtml(o){
   <div class="bar ${tn}"></div><div style="flex:1;min-width:0">
   <div class="body"><div class="top">
    <button class="tick ${o.done?"on":""}" data-act="done"></button>
-   <div class="main" data-act="open"><span class="tag" style="${sty(t.k)}">${esc(disp(...pairOf(t.k)))}</span><span class="ttl"${o.done?' style="text-decoration:line-through;color:#9aa5b4"':""}>${esc(t.title)}</span>${t.opt?'<span class="opttag">선택</span>':""}${t.rep?`<span class="rep">${t.rep==="week"?"매주":"매달"}</span>`:""}</div>
+   <div class="main" data-act="open"><span class="tag" style="${sty(t.k)}">${esc(disp(...pairOf(t.k)))}</span><span class="ttl"${o.done?' style="text-decoration:line-through;color:#9aa5b4"':""}>${esc(t.title)}</span>${t.opt?'<span class="opttag">선택</span>':""}${t.shared?`<span class="opttag" style="color:#0369a1;background:#e0f2fe;border-color:#bae6fd">공유${t.sharedBy?" · "+esc(t.sharedBy):""}</span>`:""}${t.rep?`<span class="rep">${t.rep==="week"?"매주":"매달"}</span>`:""}</div>
   </div><div class="meta">${esc(lb)}${t.time?" "+t.time:""}${t.memo?" · "+esc(t.memo):""}</div></div>
   <div class="acts">${t.rep
-   ?`<button class="ghost" data-act="skip">이번 회차만 삭제</button><button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
-   :`<button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button><input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`}
+   ?`<button class="ghost" data-act="skip">이번 회차만 삭제</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
+   :`<button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`}
   </div></div></li>`;
 }
 const group=(title,items,tone)=>!items.length?"":
@@ -619,12 +630,15 @@ function add(){
  const v=$("line").value,p=parseLine(v),title=p.title||v.trim(),k=effK();
  if(!title){$("line").focus();toast("할 일 내용을 적어줘");return}
  if(k&&k[0]==="?"){toast(k.slice(1)+" 선생님을 골라줘");return}
+ const doShare=shareOn;
  const t={id:String(Date.now())+Math.random().toString(36).slice(2,5),title,k:k||key("기타",""),
   due:effDue(),time:p.time||"",memo:$("memo").value.trim(),opt:effOpt(),
-  rep:effRep()==="none"?null:effRep(),skips:[],doneDates:[],done:false,created:Date.now()};
+  rep:effRep()==="none"?null:effRep(),skips:[],doneDates:[],done:false,created:Date.now(),
+  shared:doShare,shareId:doShare?genShareId():null,sharedBy:doShare?(me?.nick||me?.id||""):null};
  S.tasks.unshift(t);
- $("line").value="";$("memo").value="";sel=null;touched=false;rep="none";isOpt=false;due=ymd(addD(new Date(),1));
+ $("line").value="";$("memo").value="";sel=null;touched=false;rep="none";isOpt=false;shareOn=false;due=ymd(addD(new Date(),1));
  markDirty();renderAll();toast(`${disp(...pairOf(t.k))} · ${dueLabel(t.due)[0]}${t.rep?" 반복":""} 등록`);
+ if(doShare)shareTask(t);
 }
 function pickK(k){sel=k;if(!touched&&CLASSES.has(k)){const n=nextClassDate(k);if(n)due=ymd(n)}
  renderChips();renderDues();renderHint();$("line").focus()}
@@ -654,6 +668,7 @@ document.addEventListener("click",async e=>{
  const dueb=T.closest("[data-due]");if(dueb){due=dueb.getAttribute("data-due");touched=true;renderDues();renderHint();return}
  const rb=T.closest("[data-rep]");if(rb){rep=rb.getAttribute("data-rep");renderDues();renderHint();return}
  const ob=T.closest("[data-opt]");if(ob){isOpt=ob.getAttribute("data-opt")==="true";renderDues();renderHint();return}
+ const shb=T.closest("[data-share]");if(shb){shareOn=!shareOn;renderDues();return}
  const tb=T.closest("[data-tab]");if(tb){switchTab(tb.getAttribute("data-tab"));return}
  const qa=T.closest('[data-act="quickadd"]');
  if(qa){
@@ -706,6 +721,11 @@ document.addEventListener("click",async e=>{
   else if(a==="p1"){t.due=ymd(addD(fromYmd(t.due),1))}
   else if(a==="p7"){t.due=ymd(addD(fromYmd(t.due),7))}
   else if(a==="del"){S.tasks=S.tasks.filter(x=>x.id!==id);openId=null}
+  else if(a==="share"){
+   if(t.shared){toast("이미 반 친구들에게 공유돼 있어");return}
+   t.shared=true;t.shareId=genShareId();t.sharedBy=me?.nick||me?.id||"";
+   shareTask(t);
+  }
   else return;
   markDirty();renderAll();
  }
@@ -766,7 +786,7 @@ async function loadAdmin(){
  $("astats").textContent="불러오는 중…";
  try{
   const j=await api("admin"),us=j.users||[];
-  const classes=(SCHED&&SCHED.classes)||["1반"];
+  const classes=(SCHED&&SCHED.classes)||["4반"];
   $("utable").innerHTML=`<thead><tr><th>이름 · 아이디</th><th>반</th><th>미완료</th><th>기한 지남</th><th>마지막 저장</th><th></th></tr></thead><tbody>`+
    us.map(u=>`<tr>
     <td>${esc(u.nick||u.id)}${u.admin?" <span class='opttag'>관리자</span>":""}<br><span style="color:#9aa5b4;font-size:10px">${esc(u.id)}</span></td>
@@ -857,7 +877,7 @@ $("installbtn").addEventListener("click",async()=>{if(!deferred)return;deferred.
 /* ══ 로그인 ══ */
 let mode="login";
 function populateClassSelect(){
- const sel=$("gcls"),classes=(SCHED&&SCHED.classes)||["1반"];
+ const sel=$("gcls"),classes=(SCHED&&SCHED.classes)||["4반"];
  sel.innerHTML=classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
 }
 function gateRender(){
@@ -900,7 +920,7 @@ async function boot(){
  syncBadge("","연결 중");
  try{
   const j=await api("state");
-  uid=j.me.id;me=j.me;myClass=me.cls||(SCHED&&SCHED.classes&&SCHED.classes[0])||"1반";
+  uid=j.me.id;me=j.me;myClass=me.cls||(SCHED&&SCHED.classes&&SCHED.classes[0])||"4반";
   localStorage.setItem("last_uid",uid);localStorage.setItem("last_me",JSON.stringify(me));
   if(j.data&&j.data.tasks)S=Object.assign({tasks:[],settings:{h:19,m:30,last:""}},j.data);
   try{localStorage.setItem(cacheKey(),JSON.stringify(S))}catch(e){}
@@ -912,7 +932,7 @@ async function boot(){
   const last=localStorage.getItem("last_uid");
   if(last){uid=last;
    try{me=JSON.parse(localStorage.getItem("last_me")||"{}")}catch(e2){me={nick:last}}
-   myClass=me.cls||(SCHED&&SCHED.classes&&SCHED.classes[0])||"1반";
+   myClass=me.cls||(SCHED&&SCHED.classes&&SCHED.classes[0])||"4반";
    try{const c=localStorage.getItem(cacheKey());if(c)S=Object.assign(S,JSON.parse(c))}catch(e2){}
    refreshClasses();
    startUI();syncBadge("off","오프라인 · 이 기기 기록");

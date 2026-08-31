@@ -3,7 +3,7 @@ import { get, set, smembers, auth, hashPw, fail } from "../lib/db.js";
 
 const pad = n => String(n).padStart(2, "0");
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const DEFAULT_CLASS = "1반";
+const DEFAULT_CLASS = "4반";
 
 export default async function handler(req, res) {
   try {

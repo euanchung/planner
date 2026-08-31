@@ -3,7 +3,7 @@ import { get, set, setex, sadd, smembers, hashPw, fail } from "../lib/db.js";
 
 const newToken = () => crypto.randomBytes(24).toString("hex");
 const TTL = 60 * 60 * 24 * 120; // 120일
-const DEFAULT_CLASS = "1반";
+const DEFAULT_CLASS = "4반";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return fail(res, 405, "POST만 가능해");
