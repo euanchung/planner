@@ -50,6 +50,9 @@ h2.sec .sub{font-weight:400;color:var(--muted);font-size:11.5px}
 input[type=date],input[type=time]{font:inherit;font-size:12.5px;padding:6px 9px;border-radius:9px;border:1px solid #cfd6df;background:#fff;color:#4b5563}
 .addrow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 #memo{flex:1;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:#f7f9fb;outline:none;min-width:140px}
+.searchbar{display:flex;gap:8px;align-items:center;margin:2px 0 10px}
+#search{flex:1;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:#fff;outline:none;min-width:100px}
+#search:focus{border-color:var(--head)}
 .primary{font:inherit;font-size:14px;font-weight:600;padding:9px 20px;border-radius:9px;border:0;background:var(--head);color:#fff;cursor:pointer}
 .ghost{font:inherit;font-size:12.5px;padding:6px 10px;border-radius:9px;border:1px solid #cfd6df;background:#fff;color:#4b5563;cursor:pointer}
 .danger{color:var(--over);border-color:#f3c3c3}
@@ -186,6 +189,9 @@ select.mini{padding:5px 4px}
       <button class="primary" id="add">등록</button>
     </div>
     <p class="hint" id="summary"></p>
+  </div>
+  <div class="searchbar">
+    <input type="search" id="search" placeholder="할 일 검색 (제목·메모·과목)" autocomplete="off">
   </div>
   <div id="lists"></div>
   <div class="card">
@@ -452,6 +458,7 @@ async function shareTask(t){
 let sel=null,due=ymd(addD(new Date(),1)),touched=false,openId=null,showDone=false;
 let rep="none",isOpt=false,shareOn=false,tab="home",calY,calM,calSel=null,ttSel=null;
 let editingId=null,editTime="";
+let searchQ="";
 let fromDate=null; // 기간제 과제 시작일 (선택)
 const now=()=>new Date();
 const curPeriod=()=>{const n=now(),m=n.getHours()*60+n.getMinutes();
@@ -549,7 +556,18 @@ function occHtml(o){
 }
 const group=(title,items,tone)=>!items.length?"":
  `<div class="grp ${tone||""}"><h3>${title} <em>${items.length}</em></h3><ul class="list">`+items.map(occHtml).join("")+`</ul></div>`;
+const taskMatches=(t,q)=>(t.title+" "+(t.memo||"")+" "+disp(...pairOf(t.k))).toLowerCase().includes(q);
 function renderLists(){
+ const q=(searchQ||"").trim().toLowerCase();
+ if(q){
+  const p=pendingOcc().filter(o=>taskMatches(o.t,q)),D=doneOcc().filter(o=>taskMatches(o.t,q));
+  let h=`<div class="grp"><h3>검색 결과 <em>${p.length+D.length}건</em></h3>`+
+   (p.length+D.length?`<ul class="list">${p.map(occHtml).join("")}${D.map(occHtml).join("")}</ul>`
+    :`<p class="empty" style="padding:20px 0">"${esc(searchQ.trim())}"에 맞는 할 일이 없어.</p>`)
+   +`</div>`;
+  $("lists").innerHTML=h;
+  return;
+ }
  const p=pendingOcc(),t=ymd(now()),tm=ymd(addD(now(),1));
  let h=group("기한 지남",p.filter(x=>x.d<t),"over")+group("오늘",p.filter(x=>x.d===t),"today")
   +group("내일",p.filter(x=>x.d===tm),"tmr")+group("이번 주",p.filter(x=>dd(x.d)>=2&&dd(x.d)<=7))
@@ -718,6 +736,8 @@ $("line").addEventListener("keydown",e=>{if(e.key==="Enter")add()});
 $("memo").addEventListener("keydown",e=>{if(e.key==="Enter")add()});
 $("add").addEventListener("click",add);
 $("canceledit").addEventListener("click",()=>{cancelEdit();renderAll();});
+$("search").addEventListener("input",()=>{searchQ=$("search").value;renderLists();});
+$("search").addEventListener("keydown",e=>{if(e.key==="Escape"){$("search").value="";searchQ="";renderLists();$("search").blur()}});
 $("pm").addEventListener("click",()=>{calM--;if(calM<0){calM=11;calY--}renderCal()});
 $("nm").addEventListener("click",()=>{calM++;if(calM>11){calM=0;calY++}renderCal()});
 
