@@ -272,6 +272,11 @@ select.mini{padding:5px 4px}
 
 <section id="chat" class="hidden">
   <div class="card">
+    <h2 class="sec">우리 반 친구들</h2>
+    <p class="note" style="margin-top:0">같은 반 친구들의 아이디야. 눌러서 바로 채팅을 시작할 수 있어.</p>
+    <div class="row wrap" id="classmates"></div>
+  </div>
+  <div class="card">
     <h2 class="sec">채팅</h2>
     <p class="note" style="margin-top:0">친구 아이디를 알면 바로 1:1로 대화할 수 있어.</p>
     <div class="addrow">
@@ -935,7 +940,7 @@ document.addEventListener("change",async e=>{
 function switchTab(k){tab=k;["home","chat","set","sched","admin"].forEach(x=>$(x).classList.toggle("hidden",x!==k));
  if(k==="admin")loadAdmin();
  if(k==="sched")schedInit();
- if(k==="chat"){loadChatPeers();if(chatWith)startChatPoll()}else stopChatPoll();
+ if(k==="chat"){loadClassmates();loadChatPeers();if(chatWith)startChatPoll()}else stopChatPoll();
  renderHeader();window.scrollTo(0,0)}
 
 $("ntime").addEventListener("change",e=>{const[h,m]=e.target.value.split(":").map(Number);
@@ -992,6 +997,16 @@ async function resetPw(id){
  try{ const j=await api("admin",{method:"POST",body:{action:"resetpw",id}});
   alert(`${id} 임시 비밀번호: ${j.tempPw}\n이 비밀번호를 알려줘. (나중에 또 바꾸고 싶으면 다시 초기화하면 돼)`);
  }catch(e){ toast("실패: "+e.message) }
+}
+
+/* ══ 반 친구 목록 ══ */
+async function loadClassmates(){
+ try{ const j=await api("classmates"); renderClassmates(j.classmates||[]) }catch(e){ /* 조용히 무시 */ }
+}
+function renderClassmates(list){
+ $("classmates").innerHTML=list.length?list.map(c=>
+  `<button class="chip" data-chatpeer="${esc(c.id)}"><span class="s">${esc(c.nick)}${c.admin?" · 관리자":c.officer==="leader"?" · 반장":c.officer==="vice"?" · 부반장":""}</span><span class="p">${esc(c.id)}</span></button>`
+ ).join(""):`<p class="note" style="margin:0">아직 같은 반에 가입한 다른 친구가 없어.</p>`;
 }
 
 /* ══ 채팅 ══ */
