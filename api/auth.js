@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       await set("state:" + uid, { data: { tasks: [], settings: { h: 19, m: 30, last: "" } }, updatedAt: new Date().toISOString() });
       const tok = newToken();
       await setex("tok:" + tok, uid, TTL);
-      return res.status(200).json({ token: tok, me: { id: uid, nick: user.nick, admin: user.admin, cls: user.cls } });
+      return res.status(200).json({ token: tok, me: { id: uid, nick: user.nick, admin: user.admin, cls: user.cls, officer: null } });
     }
 
     if (action === "login") {
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       if (hashPw(pass, existing.salt) !== existing.pw) return fail(res, 401, "아이디나 비밀번호가 맞지 않아");
       const tok = newToken();
       await setex("tok:" + tok, uid, TTL);
-      return res.status(200).json({ token: tok, me: { id: uid, nick: existing.nick, admin: !!existing.admin, cls: existing.cls || DEFAULT_CLASS } });
+      return res.status(200).json({ token: tok, me: { id: uid, nick: existing.nick, admin: !!existing.admin, cls: existing.cls || DEFAULT_CLASS, officer: existing.officer || null } });
     }
 
     return fail(res, 400, "알 수 없는 요청이야");

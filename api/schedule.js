@@ -1,4 +1,4 @@
-import { get, set, smembers, auth, fail } from "../lib/db.js";
+import { get, set, smembers, auth, isManager, fail } from "../lib/db.js";
 
 /* 반별 시간표. 매주 같은 시간표가 아니라 A주/B주 두 벌을 두고 번갈아 쓴다.
    refMonday가 속한 주 = A주. 그 다음 주는 B주, 또 그 다음 주는 다시 A주 ... 이렇게 반복된다.
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const me = await auth(req);
       if (!me) return fail(res, 401, "인증이 필요해");
-      if (!me.admin) return fail(res, 403, "관리자만 시간표를 바꿀 수 있어");
+      if (!isManager(me)) return fail(res, 403, "관리자·반장·부반장만 시간표를 바꿀 수 있어");
       const cfg = req.body?.config;
       if (!cfg || typeof cfg !== "object" || !Array.isArray(cfg.classes)) return fail(res, 400, "형식이 맞지 않아");
       const clean = normalize(cfg);

@@ -53,6 +53,11 @@ input[type=date],input[type=time]{font:inherit;font-size:12.5px;padding:6px 9px;
 .searchbar{display:flex;gap:8px;align-items:center;margin:2px 0 10px}
 #search{flex:1;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:#fff;outline:none;min-width:100px}
 #search:focus{border-color:var(--head)}
+.chatmsgs{max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 2px;margin-bottom:8px}
+.cmsg{max-width:75%;padding:8px 11px;border-radius:12px;font-size:13px;line-height:1.4;word-break:break-word}
+.cmsg.me{align-self:flex-end;background:var(--head);color:#fff;border-bottom-right-radius:3px}
+.cmsg.them{align-self:flex-start;background:#f0f3f7;color:var(--ink);border-bottom-left-radius:3px}
+.cmsg .ct{font-size:9.5px;opacity:.65;margin-top:3px}
 .primary{font:inherit;font-size:14px;font-weight:600;padding:9px 20px;border-radius:9px;border:0;background:var(--head);color:#fff;cursor:pointer}
 .ghost{font:inherit;font-size:12.5px;padding:6px 10px;border-radius:9px;border:1px solid #cfd6df;background:#fff;color:#4b5563;cursor:pointer}
 .danger{color:var(--over);border-color:#f3c3c3}
@@ -94,13 +99,17 @@ td.tm b{color:#374151;font-weight:600}td.tm span{font-size:9.5px;font-variant-nu
 .cell.hit{outline:2px solid var(--head);outline-offset:-1px}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px}
 .cal .dow{text-align:center;font-size:10.5px;color:var(--muted);padding:2px 0}
-.cal button{font:inherit;font-size:12px;aspect-ratio:1;border-radius:9px;border:1px solid transparent;background:#f7f9fb;color:#374151;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0}
+.cal button{position:relative;font:inherit;font-size:12px;aspect-ratio:1;border-radius:9px;border:1px solid transparent;background:#f7f9fb;color:#374151;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;overflow:visible}
 .cal button.out{color:#c8cfd8;background:transparent}
 .cal button.now{border-color:var(--head);font-weight:700}
 .cal button.sel{background:var(--head);color:#fff}
 .dots{display:flex;gap:2px;height:5px}
 .dot{width:4px;height:4px;border-radius:99px;display:inline-block}
-.dot.req{background:var(--over)}.dot.opt{background:#a9b2bd}.dot.prog{background:#3b82f6}
+.dot.req{background:var(--over)}.dot.opt{background:#a9b2bd}
+.pbar{position:absolute;left:0;right:0;bottom:4px;height:4px;background:#3b82f6;pointer-events:none}
+.pbar.pstart{left:50%;border-radius:3px 0 0 3px}
+.pbar.pend{right:50%}
+.parrow{position:absolute;left:50%;bottom:2px;width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:6px solid #3b82f6;pointer-events:none}
 .calhead{display:flex;align-items:center;gap:10px}
 .calhead b{font-size:13px}
 .dl{list-style:none;margin:8px 0 0;padding:0;font-size:12px;color:#4b5563}
@@ -119,6 +128,13 @@ textarea{width:100%;height:80px;font-family:ui-monospace,Menlo,monospace;font-si
 #banner button{font:inherit;background:transparent;border:0;color:#9aa5b4;cursor:pointer;font-size:13px}
 .hidden{display:none!important}
 #gate{position:fixed;inset:0;background:var(--head);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.gatewrap{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
+.intro{padding:0 4px}
+.introtitle{font-size:18px;font-weight:700;color:#fff;margin-bottom:6px}
+.introdesc{font-size:12.5px;color:#c3cad4;line-height:1.6;margin:0 0 10px}
+.introlist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.introlist li{font-size:12px;color:#c3cad4;line-height:1.5;padding-left:17px;position:relative}
+.introlist li::before{content:"✓";position:absolute;left:0;color:#7dd3fc;font-weight:700}
 #gate .box{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:380px}
 #gate h1{font-size:17px;margin:0 0 4px}
 #gate p{font-size:12px;color:var(--muted);margin:0 0 16px;line-height:1.6}
@@ -146,7 +162,18 @@ select.mini{padding:5px 4px}
 </head>
 <body>
 
-<div id="gate"><div class="box">
+<div id="gate"><div class="gatewrap">
+<div class="intro">
+  <div class="introtitle">📚 과제 리마인더</div>
+  <p class="introdesc">시간표를 기준으로 마감일을 자동으로 잡아주는 우리 반 전용 과제 관리 앱이야. 처음이면 아래에서 "새로 만들기"로 가입해줘.</p>
+  <ul class="introlist">
+    <li>"물리 실험보고서 내일"처럼 한 줄만 적으면 과목·마감일을 알아서 인식해</li>
+    <li>시간표·캘린더에서 마감을 한눈에 확인하고, 날짜를 눌러 바로 추가할 수 있어</li>
+    <li>반장·부반장은 시간표를 관리하고 반 전체에 할 일을 공유할 수 있어</li>
+    <li>친구 아이디로 1:1 채팅도 할 수 있어</li>
+  </ul>
+</div>
+<div class="box">
   <h1 id="gtitle">로그인</h1>
   <p id="gdesc">아이디와 비밀번호로 들어와.</p>
   <input id="gid" placeholder="아이디" autocomplete="username">
@@ -156,6 +183,7 @@ select.mini{padding:5px 4px}
   <div class="err" id="gerr"></div>
   <button class="primary" id="gsubmit">로그인</button>
   <div class="switch">계정이 없어? <button id="gswitch">새로 만들기</button></div>
+</div>
 </div></div>
 
 <header>
@@ -234,6 +262,26 @@ select.mini{padding:5px 4px}
       <li><b>국어 예습 매주</b> — 매주 같은 요일마다 반복</li>
       <li><b>대회 접수 10/14 오후 3시 선택</b> — 날짜·시각·선택과제까지</li>
     </ul>
+  </div>
+</section>
+
+<section id="chat" class="hidden">
+  <div class="card">
+    <h2 class="sec">채팅</h2>
+    <p class="note" style="margin-top:0">친구 아이디를 알면 바로 1:1로 대화할 수 있어.</p>
+    <div class="addrow">
+      <input id="chatnewid" placeholder="친구 아이디" autocomplete="off">
+      <button class="primary" id="chatstart">대화 시작</button>
+    </div>
+    <div class="row wrap" id="chatpeers" style="margin-top:10px"></div>
+  </div>
+  <div class="card" id="chatthreadcard" style="display:none">
+    <h2 class="sec"><span id="chatpartner"></span><button class="ghost" id="chatclose" style="margin-left:auto">닫기</button></h2>
+    <div class="chatmsgs" id="chatmsgs"></div>
+    <div class="addrow">
+      <input id="chatinput" placeholder="메시지 입력" autocomplete="off">
+      <button class="primary" id="chatsend">보내기</button>
+    </div>
   </div>
 </section>
 
@@ -412,6 +460,7 @@ function parseLine(text){
 let S={tasks:[],settings:{h:19,m:30,last:""}};
 let uid=null,me=null,pulledAt=0,dirty=false,online=true;
 const cacheKey=()=>"cache_"+uid;
+const isManager=()=>!!(me&&(me.admin||me.officer==="leader"||me.officer==="vice"));
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),1800)}
@@ -502,8 +551,10 @@ function renderHeader(){
  if(a)h+=`<span class="b b-today">오늘 마감 ${a}</span>`;
  if(b)h+=`<span class="b b-tmr">내일 마감 ${b}</span>`;
  $("badges").innerHTML=h;
- $("who").innerHTML=`${esc(me?.nick||"")}${myClass?" · "+esc(myClass):""}${me?.admin?" · 관리자":""} <button id="logout">로그아웃</button>`;
- const defs=[["home","할 일"],["set","설정"]].concat(me?.admin?[["sched","시간표관리"],["admin","관리"]]:[]);
+ if(tab==="sched"&&!isManager()){tab="home";["home","chat","set","sched","admin"].forEach(x=>$(x).classList.toggle("hidden",x!=="home"))}
+ const officerLabel=me?.officer==="leader"?" · 반장":me?.officer==="vice"?" · 부반장":"";
+ $("who").innerHTML=`${esc(me?.nick||"")}${myClass?" · "+esc(myClass):""}${me?.admin?" · 관리자":""}${officerLabel} <button id="logout">로그아웃</button>`;
+ const defs=[["home","할 일"],["chat","채팅"],["set","설정"]].concat(isManager()?[["sched","시간표관리"]]:[]).concat(me?.admin?[["admin","관리"]]:[]);
  $("tabs").innerHTML=defs.map(([k,l])=>`<button data-tab="${k}" class="${tab===k?"on":""}">${l}</button>`).join("");
 }
 function renderChips(){
@@ -527,7 +578,7 @@ function renderDues(){
  const r=effRep(),o=effOpt();
  $("flags").innerHTML=[["none","한 번만"],["week","매주"],["month","매달"]].map(([v,l])=>`<button class="opt ${r===v?"sel":""}" data-rep="${v}">${l}</button>`).join("")
   +`<span style="width:10px"></span>`+[[false,"필수"],[true,"선택"]].map(([v,l])=>`<button class="opt ${o===v?"sel":""}" data-opt="${v}">${l}</button>`).join("")
-  +`<span style="width:10px"></span><button class="opt ${shareOn?"sel":""}" data-share="1">${myClass} 전체와 공유</button>`;
+  +(isManager()?`<span style="width:10px"></span><button class="opt ${shareOn?"sel":""}" data-share="1">${myClass} 전체와 공유</button>`:"");
 }
 function renderHint(){
  const p=parseLine($("line").value),k=effK();let h="";
@@ -549,9 +600,10 @@ function occHtml(o){
    <button class="tick ${o.done?"on":""}" data-act="done"></button>
    <div class="main" data-act="open"><span class="tag" style="${sty(t.k)}">${esc(disp(...pairOf(t.k)))}</span><span class="ttl"${o.done?' style="text-decoration:line-through;color:#9aa5b4"':""}>${esc(t.title)}</span>${t.opt?'<span class="opttag">선택</span>':""}${t.from?'<span class="opttag" style="color:#1d4ed8;background:#dbeafe;border-color:#bfdbfe">기간제</span>':""}${t.shared?`<span class="opttag" style="color:#0369a1;background:#e0f2fe;border-color:#bae6fd">공유${t.sharedBy?" · "+esc(t.sharedBy):""}</span>`:""}${t.rep?`<span class="rep">${t.rep==="week"?"매주":"매달"}</span>`:""}</div>
   </div><div class="meta">${esc(lb)}${t.time?" "+t.time:""}${t.memo?" · "+esc(t.memo):""}</div></div>
-  <div class="acts">${t.rep
-   ?`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="skip">이번 회차만 삭제</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
-   :`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button><button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button><input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`}
+  <div class="acts">${(()=>{const shareBtn=isManager()?`<button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button>`:"";
+   return t.rep
+    ?`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="skip">이번 회차만 삭제</button>${shareBtn}<button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
+    :`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button>${shareBtn}<input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`})()}
   </div></div></li>`;
 }
 const group=(title,items,tone)=>!items.length?"":
@@ -614,13 +666,21 @@ function renderTTdetail(){
      <button class="ghost" id="ttclose">닫기</button>
    </div></div>`;
 }
-/* 기간제 과제가 "진행 중"인 날짜들 (마감일 당일은 제외 — 그날은 마감 점으로 이미 표시됨) */
-function periodDaysInRange(from,to){
+/* 기간제 과제의 화살표 바: 날짜별로 "시작(start)/중간(mid)/마감(end)" 역할을 매겨서
+   달력 셀 위에 이어지는 막대 + 마감일에 화살촉을 그린다. 같은 날에 여러 개가 겹치면 먼저
+   찾은 하나만 그린다 (여러 줄로 겹쳐 그리진 않음 — 학급용 도구라 이 정도로 충분). */
+function periodBarInfo(from,to){
  const map={};
  for(const x of S.tasks){
-  if(x.rep||!x.from||x.done)continue;
+  if(x.rep||!x.from||x.done||x.from===x.due)continue;
   let d=fromYmd(x.from),g=0;
-  while(g++<400){const s=ymd(d);if(s>=x.due)break;if(s>=from&&s<=to)(map[s]=map[s]||[]).push(x);d=addD(d,1)}
+  while(g++<400){
+   const s=ymd(d);
+   if(s>x.due)break;
+   if(s>=from&&s<=to&&!map[s])map[s]=s===x.from?"start":(s===x.due?"end":"mid");
+   if(s===x.due)break;
+   d=addD(d,1);
+  }
  }
  return map;
 }
@@ -628,16 +688,17 @@ function renderCal(){
  const n=now();$("calmon").textContent=`${calY}년 ${calM+1}월`;
  const first=new Date(calY,calM,1),start=addD(first,-first.getDay());
  const rs=ymd(start),re=ymd(addD(start,41));
- const occ=occurrences(rs,re),pdays=periodDaysInRange(rs,re);
+ const occ=occurrences(rs,re),bars=periodBarInfo(rs,re);
  let h=DAY.map(d=>`<div class="dow">${d}</div>`).join("");
  for(let i=0;i<42;i++){const d=addD(start,i),s=ymd(d),out=d.getMonth()!==calM;
-  const day=occ.filter(o=>o.d===s&&!o.done),req=day.some(o=>!o.t.opt),op=day.some(o=>o.t.opt),prog=!!(pdays[s]&&pdays[s].length);
+  const day=occ.filter(o=>o.d===s&&!o.done),req=day.some(o=>!o.t.opt),op=day.some(o=>o.t.opt);
+  const role=bars[s],barHtml=role?`<i class="pbar p${role}"></i>${role==="end"?'<i class="parrow"></i>':""}`:"";
   h+=`<button class="${out?"out":""} ${s===ymd(n)?"now":""} ${calSel===s?"sel":""}" data-day="${s}">
-   <span>${d.getDate()}</span><span class="dots">${req?'<i class="dot req"></i>':""}${op?'<i class="dot opt"></i>':""}${prog?'<i class="dot prog"></i>':""}</span></button>`}
+   <span>${d.getDate()}</span><span class="dots">${req?'<i class="dot req"></i>':""}${op?'<i class="dot opt"></i>':""}</span>${barHtml}</button>`}
  $("cal").innerHTML=h;renderCalDetail();
 }
 function renderCalDetail(){
- if(!calSel){$("caldetail").innerHTML=`<p class="note">날짜를 누르면 그날 마감인 과제가 나와. 빨간 점은 필수, 회색 점은 선택, 파란 점은 기간제 과제가 진행 중인 날이야.</p>`;return}
+ if(!calSel){$("caldetail").innerHTML=`<p class="note">날짜를 누르면 그날 마감인 과제가 나와. 빨간 점은 필수, 회색 점은 선택. 파란 화살표 막대는 기간제 과제가 언제부터 언제까지인지 보여주고, 화살촉이 있는 날이 마감일이야.</p>`;return}
  const due=pendingOcc().filter(o=>o.d===calSel);
  const inProg=S.tasks.filter(x=>!x.rep&&x.from&&!x.done&&x.from<=calSel&&calSel<x.due).map(x=>({t:x,d:x.due,done:false}));
  const all=due.concat(inProg),d=fromYmd(calSel);
@@ -761,6 +822,7 @@ document.addEventListener("click",async e=>{
  const ob=T.closest("[data-opt]");if(ob){isOpt=ob.getAttribute("data-opt")==="true";renderDues();renderHint();return}
  const shb=T.closest("[data-share]");if(shb){shareOn=!shareOn;renderDues();return}
  const tb=T.closest("[data-tab]");if(tb){switchTab(tb.getAttribute("data-tab"));return}
+ const cp=T.closest("[data-chatpeer]");if(cp){openChat(cp.getAttribute("data-chatpeer"));return}
  const qa=T.closest('[data-act="quickadd"]');
  if(qa){
   const inp=$(qa.getAttribute("data-qcsrc")),dueDate=qa.getAttribute("data-qcdue"),v=(inp&&inp.value||"").trim();
@@ -847,10 +909,19 @@ document.addEventListener("change",async e=>{
   catch(err){ toast("실패: "+err.message) }
   return;
  }
+ const ofsel=e.target.closest("[data-setofficer]");
+ if(ofsel){
+  const id=ofsel.getAttribute("data-setofficer"),role=ofsel.value;
+  try{ await api("admin",{method:"POST",body:{action:"setofficer",id,role}});
+   toast(role?`${role==="leader"?"반장":"부반장"}으로 지정했어`:"직책을 해제했어"); loadAdmin(); }
+  catch(err){ toast("실패: "+err.message) }
+  return;
+ }
 });
-function switchTab(k){tab=k;["home","set","sched","admin"].forEach(x=>$(x).classList.toggle("hidden",x!==k));
+function switchTab(k){tab=k;["home","chat","set","sched","admin"].forEach(x=>$(x).classList.toggle("hidden",x!==k));
  if(k==="admin")loadAdmin();
  if(k==="sched")schedInit();
+ if(k==="chat"){loadChatPeers();if(chatWith)startChatPoll()}else stopChatPoll();
  renderHeader();window.scrollTo(0,0)}
 
 $("ntime").addEventListener("change",e=>{const[h,m]=e.target.value.split(":").map(Number);
@@ -887,10 +958,15 @@ async function loadAdmin(){
  try{
   const j=await api("admin"),us=j.users||[];
   const classes=(SCHED&&SCHED.classes)||["4반"];
-  $("utable").innerHTML=`<thead><tr><th>이름 · 아이디</th><th>반</th><th>미완료</th><th>기한 지남</th><th>마지막 저장</th><th></th></tr></thead><tbody>`+
+  $("utable").innerHTML=`<thead><tr><th>이름 · 아이디</th><th>반</th><th>직책</th><th>미완료</th><th>기한 지남</th><th>마지막 저장</th><th></th></tr></thead><tbody>`+
    us.map(u=>`<tr>
     <td>${esc(u.nick||u.id)}${u.admin?" <span class='opttag'>관리자</span>":""}<br><span style="color:#9aa5b4;font-size:10px">${esc(u.id)}</span></td>
     <td><select class="mini" data-setcls="${esc(u.id)}">${classes.map(c=>`<option value="${esc(c)}" ${c===u.cls?"selected":""}>${esc(c)}</option>`).join("")}</select></td>
+    <td>${u.admin?`<span style="color:#9aa5b4;font-size:11px">관리자</span>`:`<select class="mini" data-setofficer="${esc(u.id)}">
+       <option value="" ${!u.officer?"selected":""}>-</option>
+       <option value="leader" ${u.officer==="leader"?"selected":""}>반장</option>
+       <option value="vice" ${u.officer==="vice"?"selected":""}>부반장</option>
+      </select>`}</td>
     <td>${u.pending}</td><td${u.overdue?' style="color:var(--over);font-weight:600"':""}>${u.overdue}</td>
     <td style="color:#9aa5b4">${u.updatedAt?new Date(u.updatedAt).toLocaleDateString("ko-KR"):"-"}</td>
     <td><button class="ghost" data-resetpw="${esc(u.id)}" style="font-size:10px;padding:4px 7px">비번 초기화</button></td>
@@ -903,6 +979,64 @@ async function resetPw(id){
   alert(`${id} 임시 비밀번호: ${j.tempPw}\n이 비밀번호를 알려줘. (나중에 또 바꾸고 싶으면 다시 초기화하면 돼)`);
  }catch(e){ toast("실패: "+e.message) }
 }
+
+/* ══ 채팅 ══ */
+let chatWith=null,chatPollTimer=null;
+async function loadChatPeers(){
+ try{ const j=await api("chat"); renderChatPeers(j.peers||[]) }catch(e){ /* 조용히 무시 */ }
+}
+function renderChatPeers(peers){
+ $("chatpeers").innerHTML=peers.length?peers.map(p=>
+  `<button class="chip ${chatWith&&chatWith.id===p.id?"sel":""}" data-chatpeer="${esc(p.id)}"><span class="s">${esc(p.nick)}</span>${p.lastText?`<span class="p">${esc(p.lastText.slice(0,22))}</span>`:""}</button>`
+ ).join(""):`<p class="note" style="margin:0">아직 대화한 친구가 없어. 위에서 아이디를 입력해 시작해봐.</p>`;
+}
+async function openChat(id){
+ if(!id)return;
+ if(id===uid){toast("자기 자신과는 채팅할 수 없어");return}
+ try{
+  const j=await api("chat?with="+encodeURIComponent(id));
+  chatWith=j.with;
+  $("chatpartner").textContent=`${chatWith.nick} (${chatWith.id})`;
+  $("chatthreadcard").style.display="";
+  renderChatMsgs(j.messages||[]);
+  loadChatPeers();
+  startChatPoll();
+ }catch(e){ toast("채팅을 열지 못했어: "+e.message) }
+}
+function renderChatMsgs(msgs){
+ const box=$("chatmsgs");
+ box.innerHTML=msgs.map(m=>`<div class="cmsg ${m.from===uid?"me":"them"}">${esc(m.text)}<div class="ct">${new Date(m.ts).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div></div>`).join("");
+ box.scrollTop=box.scrollHeight;
+}
+async function sendChat(){
+ const v=$("chatinput").value.trim();
+ if(!v||!chatWith)return;
+ $("chatinput").value="";
+ try{
+  await api("chat",{method:"POST",body:{to:chatWith.id,text:v}});
+  const j=await api("chat?with="+encodeURIComponent(chatWith.id));
+  renderChatMsgs(j.messages||[]);
+  loadChatPeers();
+ }catch(e){ toast("전송 실패: "+e.message) }
+}
+function startChatPoll(){
+ stopChatPoll();
+ chatPollTimer=setInterval(async()=>{
+  if(!chatWith||tab!=="chat")return;
+  try{ const j=await api("chat?with="+encodeURIComponent(chatWith.id)); renderChatMsgs(j.messages||[]) }catch(e){}
+ },4000);
+}
+function stopChatPoll(){ clearInterval(chatPollTimer); chatPollTimer=null }
+$("chatstart").addEventListener("click",()=>{
+ const id=$("chatnewid").value.trim().toLowerCase();
+ if(!id){toast("아이디를 입력해줘");return}
+ $("chatnewid").value="";
+ openChat(id);
+});
+$("chatnewid").addEventListener("keydown",e=>{if(e.key==="Enter")$("chatstart").click()});
+$("chatsend").addEventListener("click",sendChat);
+$("chatinput").addEventListener("keydown",e=>{if(e.key==="Enter")sendChat()});
+$("chatclose").addEventListener("click",()=>{chatWith=null;$("chatthreadcard").style.display="none";stopChatPoll();loadChatPeers()});
 
 /* ══ 관리자 · 시간표 편집 ══ */
 let schedEditCls=null, schedEditWeek="weekA", schedDraft=null;

@@ -1,4 +1,4 @@
-import { get, set, smembers, auth, fail } from "../lib/db.js";
+import { get, set, smembers, auth, isManager, fail } from "../lib/db.js";
 
 /* 같은 반 친구들에게 할 일 하나를 복사해서 뿌린다.
    받는 사람마다 완전히 독립된 사본이라, 한 명이 완료 체크(또는 삭제)해도
@@ -8,6 +8,7 @@ export default async function handler(req, res) {
     if (req.method !== "POST") return fail(res, 405, "POST만 가능해");
     const me = await auth(req);
     if (!me) return fail(res, 401, "인증이 필요해");
+    if (!isManager(me)) return fail(res, 403, "관리자·반장·부반장만 반 전체에 공유할 수 있어");
 
     const { task, shareId } = req.body || {};
     if (!task || !task.title || !task.due) return fail(res, 400, "형식이 맞지 않아");

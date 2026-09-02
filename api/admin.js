@@ -24,6 +24,7 @@ export default async function handler(req, res) {
           nick: u?.nick || id,
           cls: u?.cls || DEFAULT_CLASS,
           admin: !!u?.admin,
+          officer: u?.officer || null,
           pending: tasks.filter(x => !x.done).length,
           overdue: tasks.filter(x => !x.rep && !x.done && x.due < t).length,
           updatedAt: st?.updatedAt || null
@@ -54,6 +55,27 @@ export default async function handler(req, res) {
         u.cls = cls || DEFAULT_CLASS;
         await set("user:" + uid, u);
         return res.status(200).json({ ok: true, cls: u.cls });
+      }
+
+      if (action === "setofficer") {
+        const role = String((req.body || {}).role || "").trim();
+        if (!["leader", "vice", ""].includes(role)) return fail(res, 400, "알 수 없는 직책이야");
+        const targetCls = u.cls || DEFAULT_CLASS;
+        if (role) {
+          // 같은 반에 이미 그 직책을 가진 사람이 있으면 내려놓게 한다 (반장/부반장은 반마다 한 명씩)
+          const ids = (await smembers("users")) || [];
+          for (const otherId of ids) {
+            if (otherId === uid) continue;
+            const ou = await get("user:" + otherId);
+            if (ou && (ou.cls || DEFAULT_CLASS) === targetCls && ou.officer === role) {
+              ou.officer = null;
+              await set("user:" + otherId, ou);
+            }
+          }
+        }
+        u.officer = role || null;
+        await set("user:" + uid, u);
+        return res.status(200).json({ ok: true, officer: u.officer });
       }
 
       return fail(res, 400, "알 수 없는 요청이야");
