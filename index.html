@@ -512,6 +512,15 @@ async function shareTask(t){
   toast(j.count?`반 친구 ${j.count}명에게 공유했어`:"공유했어 (같은 반 다른 친구가 아직 없어)");
  }catch(e){ toast("공유 실패: "+e.message) }
 }
+async function unshareTask(t){
+ const sid=t.shareId;
+ t.shared=false;t.shareId=null;t.sharedBy=null;
+ markDirty();renderAll();
+ try{
+  const j=await api("unshare",{method:"POST",body:{shareId:sid}});
+  toast(j.removed?`공유를 취소했어 (반 친구 ${j.removed}명 목록에서 지웠어)`:"공유를 취소했어");
+ }catch(e){ toast("공유 취소 실패: "+e.message) }
+}
 
 /* ══ 화면 상태 ══ */
 let sel=null,due=ymd(addD(new Date(),1)),touched=false,openId=null,showDone=false;
@@ -611,7 +620,7 @@ function occHtml(o){
    <button class="tick ${o.done?"on":""}" data-act="done"></button>
    <div class="main" data-act="open"><span class="tag" style="${sty(t.k)}">${esc(disp(...pairOf(t.k)))}</span><span class="ttl"${o.done?' style="text-decoration:line-through;color:#9aa5b4"':""}>${esc(t.title)}</span>${t.opt?'<span class="opttag">선택</span>':""}${t.from?'<span class="opttag" style="color:#1d4ed8;background:#dbeafe;border-color:#bfdbfe">기간제</span>':""}${t.shared?`<span class="opttag" style="color:#0369a1;background:#e0f2fe;border-color:#bae6fd">공유${t.sharedBy?" · "+esc(t.sharedBy):""}</span>`:""}${t.rep?`<span class="rep">${t.rep==="week"?"매주":"매달"}</span>`:""}</div>
   </div><div class="meta">${esc(lb)}${t.time?" "+t.time:""}${t.memo?" · "+esc(t.memo):""}</div></div>
-  <div class="acts">${(()=>{const shareBtn=isManager()?`<button class="ghost" data-act="share">${t.shared?"공유됨":"반과 공유"}</button>`:"";
+  <div class="acts">${(()=>{const shareBtn=isManager()?`<button class="ghost ${t.shared?"danger":""}" data-act="share">${t.shared?"공유 취소":"반과 공유"}</button>`:"";
    return t.rep
     ?`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="skip">이번 회차만 삭제</button>${shareBtn}<button class="ghost danger push" data-act="delall">반복 전체 삭제</button>`
     :`<button class="ghost" data-act="edit">수정</button><button class="ghost" data-act="p1">하루 미루기</button><button class="ghost" data-act="p7">일주일 미루기</button>${shareBtn}<input type="date" data-act="date" value="${t.due}"><button class="ghost danger push" data-act="del">삭제</button>`})()}
@@ -895,7 +904,10 @@ document.addEventListener("click",async e=>{
   else if(a==="p7"){t.due=ymd(addD(fromYmd(t.due),7))}
   else if(a==="del"){S.tasks=S.tasks.filter(x=>x.id!==id);openId=null;if(editingId===id)cancelEdit()}
   else if(a==="share"){
-   if(t.shared){toast("이미 반 친구들에게 공유돼 있어");return}
+   if(t.shared){
+    if(!confirm("공유를 취소할까? 반 친구들에게 나눠준 사본도 함께 지워져."))return;
+    unshareTask(t);return;
+   }
    t.shared=true;t.shareId=genShareId();t.sharedBy=me?.nick||me?.id||"";
    shareTask(t);
   }
